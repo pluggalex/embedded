@@ -132,6 +132,10 @@ s32 getCarPosition() {
   return getPosition(&carPositionTracker);
 }
 
+u8 getCarDirection(void){
+  return (u8)getDirection(&carPositionTracker);
+}
+
 void setCarTargetPosition(s32 target) {
   setTargetPosition(&carMotor, target);
 }

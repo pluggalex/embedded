@@ -18,6 +18,10 @@
 #include "planner.h"
 #include "assert.h"
 
+struct{
+  s32 targets[];
+  u8 direction;
+}plannerHelper;
 
 void requestPosition(s32 data){
   s32 currentPosition = getCarPosition();

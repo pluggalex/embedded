@@ -81,3 +81,13 @@ s32 getPosition(PositionTracker *tracker) {
 
 }
 
+Direction getDirection(PositionTracker *tracker) {
+  s32 currentDirection; 
+
+  xSemaphoreTake(tracker->lock, portMAX_DELAY);
+  currentDirection = tracker->direction;
+  xSemaphoreGive(tracker->lock);
+
+  return currentDirection;
+}
+

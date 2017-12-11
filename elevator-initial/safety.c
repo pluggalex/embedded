@@ -87,7 +87,7 @@ static void safetyTask(void *params) {
 		//														is at 400cm and the third floor at 
 		//														800cm (the at-floor sensor reports a floor with 
 		//														a threshold of +-0.5cm)
-    check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 1) || isInRange(lastKnownPosition, 400, 1) || isInRange(lastKnownPosition, 800, 1))), "env3");
+    check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 1) || isInRange(lastKnownPosition, 20, 1) || isInRange(lastKnownPosition, 40, 1))), "env3");
 
 		// Environment assumption 4: The lift cannot run longer than 10KM 
 		//													 without a manual checkup.

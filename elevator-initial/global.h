@@ -54,6 +54,7 @@ extern xQueueHandle pinEventQueue;
  */
 s32 getCarPosition(void);
 
+u8 getCarDirection(void);
 /**
  * Tell the elevator motor to move the car to a particular
  * place (unit are "cm")
