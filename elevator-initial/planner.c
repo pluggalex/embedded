@@ -18,6 +18,12 @@
 #include "planner.h"
 #include "assert.h"
 
+
+void requestPosition(s32 data){
+  s32 currentPosition = getCarPosition();
+  setCarTargetPosition(data);
+}
+
 static void plannerTask(void *params) {
 
   // ...
@@ -25,14 +31,18 @@ static void plannerTask(void *params) {
     PinEvent buffer;
     xQueueReceive(pinEventQueue, &buffer, portMAX_DELAY);
 
-    if (buffer == TO_FLOOR_1) {
-      setCarTargetPosition(0);
-    }
-    if (buffer == TO_FLOOR_2) {
-      setCarTargetPosition(400);
-    }
-    if (buffer == TO_FLOOR_3) {
-      setCarTargetPosition(800);
+    switch (buffer) {
+      case(TO_FLOOR_1) :
+        requestPosition(0);
+        break;
+      case(TO_FLOOR_2) :
+        requestPosition(20);
+        break;
+      case(TO_FLOOR_3) :
+        requestPosition(40);
+        break;
+      default:
+        break;
     }
   }
 }
