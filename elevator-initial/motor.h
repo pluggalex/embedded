@@ -37,6 +37,7 @@ typedef struct {
   portTickType pollingPeriod;       // Period at which current and target
                                     // position are compared
 
+  s32 currentDuty;
 } Motor;
 
 void setupMotor(Motor *motor,

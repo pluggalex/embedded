@@ -144,6 +144,10 @@ void setCarMotorStopped(u8 stopped) {
   setMotorStopped(&carMotor, stopped);
 }
 
+s32 getMotorCurrentDuty(void){
+  return getCurrentDuty(&carMotor);
+}
+
 /*-----------------------------------------------------------*/
 
 /*

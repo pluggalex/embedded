@@ -18,13 +18,29 @@
 #include "planner.h"
 #include "assert.h"
 
-struct{
+
+typedef struct{
   s32 targets[3];
-  u8 direction;
+  u8 direction;// 0 = unknown, 1 = up, 2 = down 
 }plannerHelper;
 
+plannerHelper helper; //Global helper object to keep track of direction and current targets 
+
+int existsInPlanner(val){
+  for(int i = 0; i < 3; i++){
+    if(helper.targets[i] == val)
+      return 1;
+  }
+  return 0;
+}
+
 void requestPosition(s32 data){
+  if(existsInPlanner(data)) return;
+
   s32 currentPosition = getCarPosition();
+  s32 duty = getMotorCurrentDuty(); // Probably 200 duty per 1cm/s. Check motor.h 
+  s32 stoppingDistance = 2 * duty / 200; // duty / 200 -> cm's per second. 2 == senconds given to stop
+  
   setCarTargetPosition(data);
 }
 
