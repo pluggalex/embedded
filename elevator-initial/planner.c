@@ -19,7 +19,7 @@
 #include "assert.h"
 
 struct{
-  s32 targets[];
+  s32 targets[3];
   u8 direction;
 }plannerHelper;
 
