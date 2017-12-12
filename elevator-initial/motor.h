@@ -52,4 +52,5 @@ void setTargetPosition(Motor *motor, s32 target);
 // Stop motor immediately (usually due to safety reasons)
 void setMotorStopped(Motor *motor, u8 stopped);
 
+s32 getCurrentDuty(Motor *motor);
 #endif

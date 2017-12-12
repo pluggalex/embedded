@@ -81,7 +81,6 @@ static void motorTask(void *params) {
   portTickType xLastWakeTime;
   s32 pos, targetPos;
   u8 stopped;
-  motor->currentDuty = 0;
   u16 maxDutyChange = MAX_DUTY * motor->pollingPeriod / ACCEL_TIME;
 
   xLastWakeTime = xTaskGetTickCount();
@@ -183,8 +182,9 @@ void setMotorStopped(Motor *motor, u8 stopped) {
 }
 
 s32 getCurrentDuty(Motor *motor){
+  s32 duty;
   xSemaphoreTake(motor->lock, portMAX_DELAY);
-  s32 duty = motor->currentDuty;
+  duty = motor->currentDuty;
   xSemaphoreGive(motor->lock);
   return duty;
 }

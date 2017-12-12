@@ -22,18 +22,13 @@
 
 
 typedef struct{
-  u8 queueLength;
+  u8 targetLength;
   u8 numberOfTargets;
   s32 targets[3];
   u8 direction;// 0 = unknown, 1 = up, 2 = down 
 }plannerHelper;
 
-plannerHelper helper = {
-  .queueLength = 3,
-  .numberOfTargets = 0,
-  .targets = {0},
-  .direction = 1
-}; //Global helper object to keep track of direction and current targets 
+plannerHelper helper = {3,0,{0},1}; //Global helper object to keep track of direction and current targets 
 
 int cmpLessThan(const void *a, const void *b){
   return (*(s32*)a) < (*(s32*)b);
@@ -43,63 +38,69 @@ int cmpGreaterThan(const void *a, const void *b){
   return (*(s32*)a) > (*(s32*)b);
 }
 
-void sortTargets(){
-  if(helper.direction == 1){ 
-    qsort(helper.targets, helper.numberOfTargets, sizeof(s32), cmpLessThan);
-  }
-  else{
-    qsort(helper.targets, helper.numberOfTargets, sizeof(s32), cmpGreaterThan);
-  }
+void sortTargets(int (*comparer)(const void *, const void*)){
+    qsort(helper.targets, helper.numberOfTargets, sizeof(s32), comparer);
 }
 
 int existsInPlanner(s32 val){
-  for(int i = 0; i < 3; i++){
+  int i = 0;
+  for(; i < helper.targetLength; i++){
     if(helper.targets[i] == val)
       return 1;
   }
   return 0;
 }
 
-void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 data, int (*tooClose)(const void *, const void*)){
+void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 data, int (*comparer)(const void *, const void*)){
   s32 minimumTarget = currentPosition;
   if(helper.direction == 1) minimumTarget = currentPosition + stoppingDistance;
   else minimumTarget = currentPosition - stoppingDistance;
 
-  if (tooClose(&(data), &(minimumTarget))){
-    sortTargets();
+  if (comparer(&(data), &(minimumTarget))){
     helper.targets[helper.numberOfTargets] = data;
     helper.numberOfTargets++;
+    sortTargets(comparer);
   }
   else{
+    sortTargets(comparer);
     helper.targets[helper.numberOfTargets] = data;
     helper.numberOfTargets++;
-    sortTargets();
   }
 }
 
 void requestPosition(s32 data){
-  if(existsInPlanner(data)) return;
-
   s32 currentPosition = getCarPosition();
   s32 duty = getMotorCurrentDuty(); // Probably 200 duty per 1cm/s. Check motor.h 
   s32 stoppingDistance = 2 * duty / 200; // duty / 200 -> cm's per second. 2 == senconds given to stop
   int (*cmprFun[2]) (const void*, const void*);
-  cmprFun[0] = cmpGreaterThan;
-  cmprFun[1] = cmpLessThan;
+  cmprFun[0] = cmpLessThan;
+  cmprFun[1] = cmpGreaterThan;
 
+  if(existsInPlanner(data)) return;
   insertTarget(stoppingDistance, currentPosition, data, cmprFun[helper.direction]);
 }
+        
+u8 setNextTarget(){
+  if (helper.numberOfTargets > 0){
+    setCarTargetPosition(helper.targets[0]);
+    helper.numberOfTargets--;
+    memmove(&(helper.targets), &(helper.targets[1]), helper.targetLength-1);
+    helper.targets[helper.targetLength-1] = 0; 
+    return 1;
+  }
+  return 0;
+}
 
-void setDirection(s32 carPosition){
-  if(carPosition > 799) helper.direction = 0;
+void decideDirection(s32 carPosition){
+  if(carPosition > 39) helper.direction = 0;
   if(carPosition < 1) helper.direction = 1;
 }
 
 static void plannerTask(void *params) {
+  PinEvent buffer;
+  u8 floorSwitch = 1;
 
-  // ...
   while (1) {
-    PinEvent buffer;
     xQueueReceive(pinEventQueue, &buffer, portMAX_DELAY);
     
     
@@ -115,11 +116,17 @@ static void plannerTask(void *params) {
         break;
       case(ARRIVED_AT_FLOOR):
         //TODO Wait 1s
-        setDirection(getCarPosition());
+        decideDirection(getCarPosition());
+
+        //TODO wait 1s before setting this flag to 1..
+        floorSwitch = 1;
+        break;
+      case(LEFT_FLOOR):
         break;
       default:
         break;
     }
+    if(floorSwitch && setNextTarget()) floorSwitch = 0;
   }
 }
 
