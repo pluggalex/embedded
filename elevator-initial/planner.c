@@ -42,6 +42,7 @@ void sortTargets(int (*comparer)(const void *, const void*)){
     qsort(helper.targets, helper.numberOfTargets, sizeof(s32), comparer);
 }
 
+/* */
 int existsInPlanner(s32 val){
   int i = 0;
   for(; i < helper.targetLength; i++){
@@ -68,14 +69,22 @@ void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 data, int (*com
   }
 }
 
+/* This function called when button is pressed to request a particular
+   Floor. It has data as a parameter which is a Floor number. */
 void requestPosition(s32 data){
-  s32 currentPosition = getCarPosition();
+  s32 currentPosition = getCarPosition();     //Getting Current Position of Lift
   s32 duty = getMotorCurrentDuty(); // Probably 200 duty per 1cm/s. Check motor.h 
   s32 stoppingDistance = 5;//TODO remove hardcoded 2 * duty / 200; // duty / 200 -> cm's per second. 2 == senconds given to stop
-  int (*cmprFun[2]) (const void*, const void*);
+  
+  // cmprFun is a function pointer which stores address of function which 
+  // has const void parameters.
+  int (*cmprFun[2]) (const void*, const void*); 
   cmprFun[0] = cmpLessThan;
   cmprFun[1] = cmpGreaterThan;
 
+  // checking in data is already present in the Planner, means
+  // if the button pressed has already handled/scheduled to go to the 
+  // requested floor.
   if(existsInPlanner(data)) return;
   insertTarget(stoppingDistance, currentPosition, data, cmprFun[helper.direction]);
 }
