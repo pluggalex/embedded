@@ -102,8 +102,7 @@ static void plannerTask(void *params) {
 
   while (1) {
     xQueueReceive(pinEventQueue, &buffer, portMAX_DELAY);
-    
-    
+
     switch (buffer) {
       case(TO_FLOOR_1) :
         requestPosition(0);
@@ -114,14 +113,13 @@ static void plannerTask(void *params) {
       case(TO_FLOOR_3) :
         requestPosition(40);
         break;
-      case(ARRIVED_AT_FLOOR):
-        //TODO Wait 1s
+      case(ARRIVED_AT_FLOOR) :
         decideDirection(getCarPosition());
 
-        //TODO wait 1s before setting this flag to 1..
+        // TODO wait 1s before setting this flag to 1..
         floorSwitch = 1;
         break;
-      case(LEFT_FLOOR):
+      case(LEFT_FLOOR) :
         break;
       default:
         break;
