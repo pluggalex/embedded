@@ -128,7 +128,7 @@ void setupActuatorModule() {
 /*-----------------------------------------------------------*/
 /* Functions defined in global.h */
 
-s32 getCarPosition() {
+double getCarPosition() {
   return getPosition(&carPositionTracker);
 }
 

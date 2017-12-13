@@ -50,9 +50,9 @@ extern xQueueHandle pinEventQueue;
 /**
  * Query the current position of the elevator car. The
  * position is provided by the PositionTracker module;
- * the unit are "cm"
+ * the unit are "mm"
  */
-s32 getCarPosition(void);
+double getCarPosition(void);
 
 u8 getCarDirection(void);
 /**

@@ -79,7 +79,7 @@ static void setDuty(Motor *motor, s32 duty) {
 static void motorTask(void *params) {
   Motor *motor = (Motor*)params;
   portTickType xLastWakeTime;
-  s32 pos, targetPos;
+  double pos, targetPos;
   u8 stopped;
   u16 maxDutyChange = MAX_DUTY * motor->pollingPeriod / ACCEL_TIME;
 
@@ -87,7 +87,7 @@ static void motorTask(void *params) {
 
   for (;;) {
     xSemaphoreTake(motor->lock, portMAX_DELAY);
-    pos = getPosition(motor->currentPosition);
+    pos = (s32)getPosition(motor->currentPosition);
     targetPos = motor->targetPosition;
     stopped = motor->stopped;
     xSemaphoreGive(motor->lock);
@@ -104,7 +104,7 @@ static void motorTask(void *params) {
       setDuty(motor, motor->currentDuty);
 
     } else if (targetPos > pos) {
-      // We have to increase the position to reach the target
+      // We have to increase the pdoubleosition to reach the target
 
       setDirection(motor->currentPosition, Up);
 

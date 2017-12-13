@@ -20,6 +20,7 @@
 #include "stm32f10x_gpio.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "global.h"
 #include "assert.h"
@@ -49,8 +50,8 @@ static void check(u8 assertion, char *name) {
 /* Function added to compare two values and return a boolean if the value is 
 	 in less than equal to the range.
 */
-bool isInRange(int value, int compare, int range){
-  return abs(value-compare) <= range;
+bool isInRange(double value, double compare, double range){
+  return fabs(value-compare) <= range;
 }
 
 /* Safety Task which will take care, if the system meets all the requirements */
@@ -61,8 +62,9 @@ static void safetyTask(void *params) {
   s32 totalTravelDistance = 0;
   s16 timeSinceStopPressed = -1;
   s16 timeSinceStopedAtFloor = 1000;  // time in ms
-  s32 lastKnownPosition = getCarPosition();
-  s32 currentPosition = 0 ;
+  double lastKnownPosition = getCarPosition();
+  double currentPosition = 0 ;
+  s32 lastKnownAcceleration = 0; //cm's / second
   s16 tickLastCheck = xTaskGetTickCount();
   xLastWakeTime = xTaskGetTickCount();
 
@@ -87,7 +89,7 @@ static void safetyTask(void *params) {
 		//														is at 400cm and the third floor at 
 		//														800cm (the at-floor sensor reports a floor with 
 		//														a threshold of +-0.5cm)
-    check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 1) || isInRange(lastKnownPosition, 20, 1) || isInRange(lastKnownPosition, 40, 1))), "env3");
+    check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 0.5) || isInRange(lastKnownPosition, 20, 0.5) || isInRange(lastKnownPosition, 40, 0.5))), "env3");
 
 		// Environment assumption 4: The lift cannot run longer than 10KM 
 		//													 without a manual checkup.
@@ -130,7 +132,7 @@ static void safetyTask(void *params) {
 			 -- Then someone pressed the Stop Button or If Lift is 
 					at the Floor	
 		*/
-    if (MOTOR_STOPPED) check(STOP_PRESSED || AT_FLOOR, "req4");
+    if (MOTOR_STOPPED && lastKnownAcceleration > 0) check(STOP_PRESSED || AT_FLOOR, "req4");
 
     // fill in safety requirement 5
     if(AT_FLOOR && MOTOR_STOPPED){
@@ -147,6 +149,7 @@ static void safetyTask(void *params) {
     if(!AT_FLOOR) check(direction == (MOTOR_UPWARD > MOTOR_DOWNWARD), "req6");
     else direction = (MOTOR_UPWARD > MOTOR_DOWNWARD); 
     
+    lastKnownAcceleration = getMotorCurrentDuty() / 200;
     vTaskDelayUntil(&xLastWakeTime, POLL_TIME);
   }
 }
