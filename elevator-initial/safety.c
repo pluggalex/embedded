@@ -57,7 +57,7 @@ bool isInRange(double value, double compare, double range){
 /* Safety Task which will take care, if the system meets all the requirements */
 static void safetyTask(void *params) {
   s16 timeSinceLastCheck;
-  s32 distance;
+  double distance;
   bool direction = 1;
   s32 totalTravelDistance = 0;
   s16 timeSinceStopPressed = -1;
@@ -93,9 +93,8 @@ static void safetyTask(void *params) {
 
 		// Environment assumption 4: The lift cannot run longer than 10KM 
 		//													 without a manual checkup.
-    totalTravelDistance += labs(lastKnownPosition - currentPosition);
-    check(((totalTravelDistance < 10000000)), "env4"); 
-
+    //check(isInRange(distance/(timeSinceLastCheck/1000),getMotorCurrentDuty()/200, 3), "distance/time does not match motor duty"); 
+    printf("distance/time %f, duty %ld, distance %f, time %d\n", distance/(timeSinceLastCheck/1000), getMotorCurrentDuty()/20, distance, timeSinceLastCheck);
 		
     lastKnownPosition = currentPosition;			//get the last known position of lift.
 

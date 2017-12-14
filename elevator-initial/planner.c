@@ -15,10 +15,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "semphr.h"
 
 #include "global.h"
 #include "planner.h"
 #include "assert.h"
+
+typedef enum{
+  ARRIVE = 0,
+  LEAVE = 1
+}floorEvent;
+
+typedef enum{
+  OPEN = 0,
+  CLOSED = 1
+}doorEvent;
 
 
 typedef struct{
@@ -45,7 +56,7 @@ void sortTargets(int (*comparer)(const void *, const void*)){
 /* */
 int existsInPlanner(s32 val){
   int i = 0;
-  for(; i < helper.targetLength; i++){
+  for(; i < helper.numberOfTargets; i++){
     if(helper.targets[i] == val)
       return 1;
   }
@@ -69,12 +80,12 @@ void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 data, int (*com
   }
 }
 
-/* This function called when button is pressed to request a particular
+/* This funCTION CALled when button is pressed to request a particular
    Floor. It has data as a parameter which is a Floor number. */
 void requestPosition(s32 data){
   s32 currentPosition = getCarPosition();     //Getting Current Position of Lift
   s32 duty = getMotorCurrentDuty(); // Probably 200 duty per 1cm/s. Check motor.h 
-  s32 stoppingDistance = 5;//TODO remove hardcoded 2 * duty / 200; // duty / 200 -> cm's per second. 2 == senconds given to stop
+  s32 stoppingDistance = 2 * duty / 200; // duty / 200 -> cm's per second. 2 == senconds given to stop
   
   // cmprFun is a function pointer which stores address of function which 
   // has const void parameters.
@@ -110,9 +121,12 @@ void decideDirection(s32 carPosition){
   if(carPosition < 1) helper.direction = 1;
 }
 
+volatile floorEvent floorSwitch = ARRIVE;
+volatile doorEvent doorSwitch = CLOSED;
+xSemaphoreHandle floorSensor;
+
 static void plannerTask(void *params) {
   PinEvent buffer;
-  u8 floorSwitch = 1;
 
   while (1) {
     xQueueReceive(pinEventQueue, &buffer, portMAX_DELAY);
@@ -128,15 +142,17 @@ static void plannerTask(void *params) {
         requestPosition(40);
         break;
       case(ARRIVED_AT_FLOOR) :
-        decideDirection(getCarPosition());
-        //Check that we not only arive at floor but also have stoped
-        //Also, we will assume that this is the first target in targets
-        //and remove the first taget. If this is not the case we are screwed.
-        removeTarget(); 
-        // TODO wait 1s before setting this flag to 1..
-        floorSwitch = 1;
+        floorSwitch = ARRIVE;
+        xSemaphoreGive(floorSensor);
         break;
       case(LEFT_FLOOR) :
+        floorSwitch = LEAVE;
+        break;
+      case(DOORS_CLOSED):
+        doorSwitch = CLOSED;
+        break;
+      case(DOORS_OPENING):
+        doorSwitch = OPEN;
         break;
       default:
         break;
@@ -145,6 +161,34 @@ static void plannerTask(void *params) {
   }
 }
 
+
+static void floorTask(void *params) {
+  portTickType timer = 0;
+  portTickType currentTime = 0;
+  while (1) {
+    //Take floor semaphore
+    timer = 0;
+    xSemaphoreTake(floorSensor, portMAX_DELAY);
+    while(floorSwitch == ARRIVE){
+    //if duty is 0 -> decideDirection, removeTarget, start counter
+      if(getMotorCurrentDuty() == 0 && timer == 0){
+        decideDirection(getCarPosition());
+        removeTarget();
+        timer = xTaskGetTickCount();
+      }
+      // when counter > 1s AND doorClosed -> setNextTarget
+      currentTime = xTaskGetTickCount();
+      if ((currentTime - timer) / portTICK_RATE_MS > 1000 &&
+          doorSwitch == CLOSED) {
+        setNextTarget();
+      }
+      vTaskDelayUntil(&currentTime, 20 / portTICK_RATE_MS);
+    }
+  } 
+}
+
 void setupPlanner(unsigned portBASE_TYPE uxPriority) {
+  floorSensor = xSemaphoreCreateMutex();
   xTaskCreate(plannerTask, "planner", 100, NULL, uxPriority, NULL);
+  xTaskCreate(floorTask, "floor", 100, NULL, uxPriority+1, NULL);
 }

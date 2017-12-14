@@ -87,7 +87,7 @@ static void motorTask(void *params) {
 
   for (;;) {
     xSemaphoreTake(motor->lock, portMAX_DELAY);
-    pos = (s32)getPosition(motor->currentPosition);
+    pos = getPosition(motor->currentPosition);
     targetPos = motor->targetPosition;
     stopped = motor->stopped;
     xSemaphoreGive(motor->lock);
