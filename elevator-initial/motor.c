@@ -79,57 +79,56 @@ static void setDuty(Motor *motor, s32 duty) {
 static void motorTask(void *params) {
   Motor *motor = (Motor*)params;
   portTickType xLastWakeTime;
-  s32 pos, targetPos;
+  double pos, targetPos;
   u8 stopped;
-  s32 currentDuty = 0;
   u16 maxDutyChange = MAX_DUTY * motor->pollingPeriod / ACCEL_TIME;
 
   xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
     xSemaphoreTake(motor->lock, portMAX_DELAY);
-	pos = getPosition(motor->currentPosition);
+    pos = getPosition(motor->currentPosition);
     targetPos = motor->targetPosition;
     stopped = motor->stopped;
-	xSemaphoreGive(motor->lock);
-	
-	if (stopped) {
-	  // immediately stop the motor
+    xSemaphoreGive(motor->lock);
 
-	  if (currentDuty >= maxDutyChange)
-	    currentDuty -= maxDutyChange;
-	  else if (currentDuty <= -maxDutyChange)
-	    currentDuty += maxDutyChange;
+    if (stopped) {
+      // immediately stop the motor
+
+      if (motor->currentDuty >= maxDutyChange)
+        motor->currentDuty -= maxDutyChange;
+      else if (motor->currentDuty <= -maxDutyChange)
+        motor->currentDuty += maxDutyChange;
       else
-	    currentDuty = 0;
-      setDuty(motor, currentDuty);
+        motor->currentDuty = 0;
+      setDuty(motor, motor->currentDuty);
 
-	} else if (targetPos > pos) {
-	  // We have to increase the position to reach the target
+    } else if (targetPos > pos) {
+      // We have to increase the pdoubleosition to reach the target
 
       setDirection(motor->currentPosition, Up);
 
-	  currentDuty = min(maxDutyAtDistance(targetPos - pos),
-	                    currentDuty + maxDutyChange);
-      setDuty(motor, currentDuty);
-	} else if (targetPos < pos) {
-	  // We have to decrease the position to reach the target
+      motor->currentDuty =
+          min(maxDutyAtDistance(targetPos - pos), motor->currentDuty + maxDutyChange);
+      setDuty(motor, motor->currentDuty);
+    } else if (targetPos < pos) {
+      // We have to decrease the position to reach the target
 
       setDirection(motor->currentPosition, Down);
 
-	  currentDuty = -min(maxDutyAtDistance(pos - targetPos),
-	                     -currentDuty + maxDutyChange);
-      setDuty(motor, currentDuty);
-	} else {
+      motor->currentDuty = -min(maxDutyAtDistance(pos - targetPos),
+                         -motor->currentDuty + maxDutyChange);
+      setDuty(motor, motor->currentDuty);
+    } else {
       // We have reached the target
 
       setDirection(motor->currentPosition, Unknown);
 
-      currentDuty = 0;
-      setDuty(motor, currentDuty);
-	}
+      motor->currentDuty = 0;
+      setDuty(motor, motor->currentDuty);
+    }
 
-	vTaskDelayUntil(&xLastWakeTime, motor->pollingPeriod);
+    vTaskDelayUntil(&xLastWakeTime, motor->pollingPeriod);
   }
 }
 
@@ -180,4 +179,12 @@ void setMotorStopped(Motor *motor, u8 stopped) {
   xSemaphoreTake(motor->lock, portMAX_DELAY);
   motor->stopped = stopped;
   xSemaphoreGive(motor->lock);
+}
+
+s32 getCurrentDuty(Motor *motor){
+  s32 duty;
+  xSemaphoreTake(motor->lock, portMAX_DELAY);
+  duty = motor->currentDuty;
+  xSemaphoreGive(motor->lock);
+  return duty;
 }

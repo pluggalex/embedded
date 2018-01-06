@@ -24,23 +24,24 @@ typedef enum {
 
 typedef struct {
 
-  GPIO_TypeDef * gpio;  		  // Pin to listener at, e.g., GPIOC,
-  u16 pin;  					  // GPIO_Pin_4
+  GPIO_TypeDef *gpio;  // Pin to listener at, e.g., GPIOC,
+  u16 pin;             // GPIO_Pin_4
 
-  vs32 position;				  // The current position. This variable
-                  // should only be accessed through
-								  // the function "getPosition"
-  u8 status;      // used to signal of last pin status 
+  double position;  // The current position in mm. This variable
+                    // should only be accessed through
+                    // the function "getPosition"
 
-  xSemaphoreHandle lock;          // Mutex semaphore protecting the struct
+  u8 status;  // used to signal of last pin status
 
-  portTickType pollingPeriod;	  // how often the status of pins is polled
+  xSemaphoreHandle lock;  // Mutex semaphore protecting the struct
 
-  Direction direction;			  // current direction of movement, which
-                                  // is necessary to know in which direction
-								  // to count
+  portTickType pollingPeriod;  // how often the status of pins is polled
 
-} PositionTracker; 
+  Direction direction;  // current direction of movement, which
+                        // is necessary to know in which direction
+                        // to count
+
+} PositionTracker;
 
 /**
  * Setup a tracker object. This creates a task that
@@ -61,6 +62,10 @@ void setDirection(PositionTracker *tracker, Direction dir);
 /**
  * Get the current position
  */
-s32 getPosition(PositionTracker *tracker);
+double getPosition(PositionTracker *tracker);
 
+/**
+ * Get the current direction
+ */
+Direction getDirection(PositionTracker *tracker);
 #endif
