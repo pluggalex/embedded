@@ -82,20 +82,19 @@ static void safetyTask(void *params) {
 		timeSinceLastCheck = (xTaskGetTickCount() - tickLastCheck) / portTICK_RATE_MS; //time in ms
     distance = currentPosition - lastKnownPosition; //distance in cm
     tickLastCheck = xTaskGetTickCount(); //remember current tick for next iteration
-    check(!(timeSinceLastCheck > 0 && distance/(timeSinceLastCheck/1000) > 50), "env2");
+    check(!(timeSinceLastCheck > 0 && distance/timeSinceLastCheck >= 0.5), "env2");
 
     // Environment assumption 3 : If the ground floor is put at 0cm 
 		//														in an absolute coordinate system, the second floor 
 		//														is at 400cm and the third floor at 
 		//														800cm (the at-floor sensor reports a floor with 
 		//														a threshold of +-0.5cm)
-    check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 0.5) || isInRange(lastKnownPosition, 20, 0.5) || isInRange(lastKnownPosition, 40, 0.5))), "env3");
+    check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 0.5) || isInRange(lastKnownPosition, 400, 0.5) || isInRange(lastKnownPosition, 800, 0.5))), "env3");
 
 		// Environment assumption 4: The lift cannot run longer than 10KM 
 		//													 without a manual checkup.
     //check(isInRange(distance/(timeSinceLastCheck/1000),getMotorCurrentDuty()/200, 3), "distance/time does not match motor duty"); 
-    printf("distance/time %f, duty %ld, distance %f, time %d\n", distance/(timeSinceLastCheck/1000), getMotorCurrentDuty()/20, distance, timeSinceLastCheck);
-		
+
     lastKnownPosition = currentPosition;			//get the last known position of lift.
 
     /* System requirement 1: if the stop button is pressed, the motor is

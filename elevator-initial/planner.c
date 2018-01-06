@@ -31,15 +31,24 @@ typedef enum{
   CLOSED = 1
 }doorEvent;
 
+typedef enum{
+  DOWN = 0,
+  UP = 1
+}directionEnum;
+
 
 typedef struct{
-  u8 targetLength;
+  const u8 targetLength;
   u8 numberOfTargets;
   s32 targets[3];
-  u8 direction;// 0 = unknown, 1 = up, 2 = down 
+  directionEnum direction;// 0 = down, 1 = up
 }plannerHelper;
 
-plannerHelper helper = {3,0,{0},1}; //Global helper object to keep track of direction and current targets 
+/*
+ * Global helper object to keep track of direction and current targets 
+ * {Number of floors, Number of targets(should be zero at start), Targets(also zero at init), Direction}
+ */
+plannerHelper helper = {3,0,{0},UP};
 
 int cmpLessThan(const void *a, const void *b){
   return (*(s32*)a) < (*(s32*)b);
@@ -49,11 +58,11 @@ int cmpGreaterThan(const void *a, const void *b){
   return (*(s32*)a) > (*(s32*)b);
 }
 
+
 void sortTargets(int (*comparer)(const void *, const void*)){
     qsort(helper.targets, helper.numberOfTargets, sizeof(s32), comparer);
 }
 
-/* */
 int existsInPlanner(s32 val){
   int i = 0;
   for(; i < helper.numberOfTargets; i++){
@@ -63,41 +72,52 @@ int existsInPlanner(s32 val){
   return 0;
 }
 
-void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 data, int (*comparer)(const void *, const void*)){
+void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 target, int (*comparer)(const void *, const void*)){
   s32 minimumTarget = currentPosition;
-  if(helper.direction == 1) minimumTarget = currentPosition + stoppingDistance;
+  if(helper.direction == UP) minimumTarget = currentPosition + stoppingDistance;
   else minimumTarget = currentPosition - stoppingDistance;
 
-  if (comparer(&(data), &(minimumTarget))){
-    helper.targets[helper.numberOfTargets] = data;
+  if (comparer(&(target), &(minimumTarget))){
+    helper.targets[helper.numberOfTargets] = target;
     helper.numberOfTargets++;
-    sortTargets(comparer);
-  }
-  else{
-    sortTargets(comparer);
-    helper.targets[helper.numberOfTargets] = data;
-    helper.numberOfTargets++;
+  } else {
+    int i;
+    for(i = helper.numberOfTargets; i >= 0; i--){
+      if(i == 0 || (comparer(&helper.targets[i-1], &target) && !comparer(&helper.targets[i-1], &currentPosition))){
+        helper.targets[i] = target;
+        helper.numberOfTargets++;
+        break;
+      }
+      else{
+        helper.targets[i] = helper.targets[i-1];
+      }
+    }
   }
 }
 
 /* This funCTION CALled when button is pressed to request a particular
    Floor. It has data as a parameter which is a Floor number. */
-void requestPosition(s32 data){
+void requestPosition(s32 target){
   s32 currentPosition = getCarPosition();     //Getting Current Position of Lift
   s32 duty = getMotorCurrentDuty(); // Probably 200 duty per 1cm/s. Check motor.h 
-  s32 stoppingDistance = 2 * duty / 200; // duty / 200 -> cm's per second. 2 == senconds given to stop
-  
-  // cmprFun is a function pointer which stores address of function which 
-  // has const void parameters.
+  s32 stoppingDistance = 2 * duty / 200; // duty / 200 => cm's per second. 2 == senconds given to stop
+ 
+  /*
+   * function pointers to greater or less than comparisons. 
+   * needed to place the requested target in the target array correctly
+   */
   int (*cmprFun[2]) (const void*, const void*); 
-  cmprFun[0] = cmpLessThan;
-  cmprFun[1] = cmpGreaterThan;
+  cmprFun[DOWN] = cmpGreaterThan;
+  cmprFun[UP] = cmpLessThan;
 
-  // checking in data is already present in the Planner, means
-  // if the button pressed has already handled/scheduled to go to the 
-  // requested floor.
-  if(existsInPlanner(data)) return;
-  insertTarget(stoppingDistance, currentPosition, data, cmprFun[helper.direction]);
+  /*
+   * checking if target is already present in the Planner, means
+   * if the button pressed has already handled/scheduled to go to the 
+   * requested floor.
+   */
+  if (!existsInPlanner(target))
+    insertTarget(stoppingDistance, currentPosition, target,
+                 cmprFun[helper.direction]);
 }
         
 u8 setNextTarget(){
@@ -107,18 +127,35 @@ u8 setNextTarget(){
   }
   return 0;
 }
-        
+
+/*
+ * Removes the first/current target in the array and moves all
+ * elements one step forward.
+ */
 void removeTarget(){
   if (helper.numberOfTargets > 0){
     helper.numberOfTargets--;
-    memmove(&(helper.targets), &(helper.targets[1]), sizeof(s32)*helper.targetLength-1);
+    memmove(&(helper.targets), &(helper.targets[1]), sizeof(s32)*helper.targetLength);
     helper.targets[helper.targetLength-1] = 0; 
   }
 }
 
+/*
+ * Very simple alogrithm for deciding direction. If we are on our way up  
+ * we prioritize floors above us. If we are on our way down we prioritize
+ * floors below usioritize floors above us. If we are on our way down we prioritize
+ * floors below us. We change direction when the next target is in the oposite direction
+ * or when we reach top or bottom.
+ */
 void decideDirection(s32 carPosition){
-  if(carPosition > 39) helper.direction = 0;
-  if(carPosition < 1) helper.direction = 1;
+  if(carPosition > 799 || (helper.numberOfTargets > 0 && helper.targets[0] < carPosition)){
+    helper.direction = DOWN;
+    sortTargets(cmpGreaterThan);
+  }
+  if(carPosition < 1  || (helper.numberOfTargets > 0 && helper.targets[0] > carPosition)){
+    helper.direction = UP;
+    sortTargets(cmpLessThan);
+  }
 }
 
 volatile floorEvent floorSwitch = ARRIVE;
@@ -136,17 +173,17 @@ static void plannerTask(void *params) {
         requestPosition(0);
         break;
       case(TO_FLOOR_2) :
-        requestPosition(20);
+        requestPosition(400);
         break;
       case(TO_FLOOR_3) :
-        requestPosition(40);
+        requestPosition(800);
         break;
       case(ARRIVED_AT_FLOOR) :
         floorSwitch = ARRIVE;
         xSemaphoreGive(floorSensor);
         break;
       case(LEFT_FLOOR) :
-        floorSwitch = LEAVE;
+        floorSwitch = LEAVE; 
         break;
       case(DOORS_CLOSED):
         doorSwitch = CLOSED;
@@ -154,33 +191,46 @@ static void plannerTask(void *params) {
       case(DOORS_OPENING):
         doorSwitch = OPEN;
         break;
+      case(STOP_PRESSED):
+        setCarMotorStopped(1);
+        break;
       default:
         break;
     }
-    setNextTarget();
+
+    /* We dont want to activate a new target if we are at a floor. 
+    * That's up to the floorTask to handle
+    */
+    if (floorSwitch != ARRIVE && doorSwitch == CLOSED) setNextTarget();
   }
 }
 
-
+/*
+ * Handles what happen each time we hit a floor.
+ * This would typicaly mean that we should remove a target that has ben reached,
+ * decide if we want to change direction as well as set the next target
+ */
 static void floorTask(void *params) {
-  portTickType timer = 0;
+  portTickType haltTime = 0;
   portTickType currentTime = 0;
   while (1) {
-    //Take floor semaphore
-    timer = 0;
+    haltTime = 0;
+    //Wait for the a floor to be reached
     xSemaphoreTake(floorSensor, portMAX_DELAY);
     while(floorSwitch == ARRIVE){
-    //if duty is 0 -> decideDirection, removeTarget, start counter
-      if(getMotorCurrentDuty() == 0 && timer == 0){
-        decideDirection(getCarPosition());
+      //Remove current target and update direction once we have stopped
+      if(getMotorCurrentDuty() == 0 && haltTime == 0){
         removeTarget();
-        timer = xTaskGetTickCount();
+        decideDirection(getCarPosition());
+        haltTime = xTaskGetTickCount();
       }
-      // when counter > 1s AND doorClosed -> setNextTarget
+      
+      //Tell the elivator to proceed once we have waited for at least 1s at this floor
       currentTime = xTaskGetTickCount();
-      if ((currentTime - timer) / portTICK_RATE_MS > 1000 &&
+      if(haltTime != 0 && (currentTime - haltTime) / portTICK_RATE_MS > 1250 &&
           doorSwitch == CLOSED) {
         setNextTarget();
+        floorSwitch = LEAVE;
       }
       vTaskDelayUntil(&currentTime, 20 / portTICK_RATE_MS);
     }
