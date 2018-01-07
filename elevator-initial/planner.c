@@ -225,9 +225,9 @@ static void floorTask(void *params) {
         haltTime = xTaskGetTickCount();
       }
       
-      //Tell the elivator to proceed once we have waited for at least 1s at this floor
+      //Tell the elivator to proceed once we have waited for at least 1.5s at this floor
       currentTime = xTaskGetTickCount();
-      if(haltTime != 0 && (currentTime - haltTime) / portTICK_RATE_MS > 1250 &&
+      if(haltTime != 0 && (currentTime - haltTime) / portTICK_RATE_MS > 1500 &&
           doorSwitch == CLOSED) {
         setNextTarget();
         floorSwitch = LEAVE;
