@@ -59,6 +59,7 @@ static void safetyTask(void *params) {
   s16 timeSinceLastCheck;
   double distance;
   bool direction = 1;
+  bool stopActive = 0;
   s32 totalTravelDistance = 0;
   s16 timeSinceStopPressed = -1;
   s16 timeSinceStopedAtFloor = 1000;  // time in ms
@@ -73,16 +74,16 @@ static void safetyTask(void *params) {
     // Environment assumption 1: the doors can only be opened if
     //                           the elevator is at a floor and
     //                           the motor is not active
-
     check((AT_FLOOR && MOTOR_STOPPED) || DOORS_CLOSED, "env1");
 
+
     // Environment assumption 2: The elevator moves at a 
-		//													 maximum speed of 50cm/s
-				
+		//													 maximum speed of 50cm/s	
 		timeSinceLastCheck = (xTaskGetTickCount() - tickLastCheck) / portTICK_RATE_MS; //time in ms
     distance = currentPosition - lastKnownPosition; //distance in cm
     tickLastCheck = xTaskGetTickCount(); //remember current tick for next iteration
     check(!(timeSinceLastCheck > 0 && distance/timeSinceLastCheck >= 0.5), "env2");
+
 
     // Environment assumption 3 : If the ground floor is put at 0cm 
 		//														in an absolute coordinate system, the second floor 
@@ -91,11 +92,12 @@ static void safetyTask(void *params) {
 		//														a threshold of +-0.5cm)
     check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 0.5) || isInRange(lastKnownPosition, 400, 0.5) || isInRange(lastKnownPosition, 800, 0.5))), "env3");
 
+
 		// Environment assumption 4: The lift cannot run longer than 10KM 
 		//													 without a manual checkup.
     //check(isInRange(distance/(timeSinceLastCheck/1000),getMotorCurrentDuty()/200, 3), "distance/time does not match motor duty"); 
-
     lastKnownPosition = currentPosition;			//get the last known position of lift.
+
 
     /* System requirement 1: if the stop button is pressed, the motor is
     //                       stopped within 1s
@@ -130,9 +132,14 @@ static void safetyTask(void *params) {
 			 -- Then someone pressed the Stop Button or If Lift is 
 					at the Floor	
 		*/
-    if (MOTOR_STOPPED && lastKnownAcceleration > 0) check(STOP_PRESSED || AT_FLOOR, "req4");
+    if(STOP_PRESSED) stopActive = 1;
+    if(lastKnownAcceleration > (getMotorCurrentDuty() / 200) && !STOP_PRESSED) stopActive = 0;
+    if (MOTOR_STOPPED && lastKnownAcceleration > 0) check(stopActive || AT_FLOOR, "req4");
 
-    // fill in safety requirement 5
+    /* Safety requirement 5
+     * The left should wait for at least 1 second in stand still 
+     * when a target floor is reached.
+     */
     if(AT_FLOOR && MOTOR_STOPPED){
       if(timeSinceStopedAtFloor < 0) timeSinceStopedAtFloor = 0;
       else timeSinceStopedAtFloor += timeSinceLastCheck;
@@ -142,8 +149,9 @@ static void safetyTask(void *params) {
       timeSinceStopedAtFloor = -1;
     }
    
-    // fill in safety requirement 6: Elevator should not change the direction of motion , 
-		// Elevator is allowed to change the directions only at Floors.
+    /* Safety requirement 6: Elevator should not change the direction of motion , 
+		 * Elevator is allowed to change the directions only at Floors.
+     */
     if(!AT_FLOOR) check(direction == (MOTOR_UPWARD > MOTOR_DOWNWARD), "req6");
     else direction = (MOTOR_UPWARD > MOTOR_DOWNWARD); 
     
