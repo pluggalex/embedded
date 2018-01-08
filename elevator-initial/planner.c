@@ -42,13 +42,14 @@ typedef struct{
   u8 numberOfTargets;
   s32 targets[3];
   directionEnum direction;// 0 = down, 1 = up
+  u8 emergencyStop;
 }plannerHelper;
 
 /*
  * Global helper object to keep track of direction and current targets 
- * {Number of floors, Number of targets(should be zero at start), Targets(also zero at init), Direction}
+ * {Number of floors, Number of targets(should be zero at start), Targets(also zero at init), Direction, emergency stop(false at start)}
  */
-plannerHelper helper = {3,0,{0},UP};
+plannerHelper helper = {3,0,{0},UP, 0};
 
 int cmpLessThan(const void *a, const void *b){
   return (*(s32*)a) < (*(s32*)b);
@@ -63,6 +64,9 @@ void sortTargets(int (*comparer)(const void *, const void*)){
     qsort(helper.targets, helper.numberOfTargets, sizeof(s32), comparer);
 }
 
+/*  
+ *  Does the value val exists in the planner array?
+ */
 int existsInPlanner(s32 val){
   int i = 0;
   for(; i < helper.numberOfTargets; i++){
@@ -72,6 +76,15 @@ int existsInPlanner(s32 val){
   return 0;
 }
 
+void toggleEmergencyStop(){
+  helper.emergencyStop == 1 ? (helper.emergencyStop = 0) : (helper.emergencyStop = 1);
+}
+
+/*
+ *  Inserts next target floor in the targets array. 
+ *  Should insert target corresponding to direction and 
+ *  minimum position relative to our velocity and position.
+ */
 void insertTarget(s32 stoppingDistance, s32 currentPosition, s32 target, int (*comparer)(const void *, const void*)){
   s32 minimumTarget = currentPosition;
   if(helper.direction == UP) minimumTarget = currentPosition + stoppingDistance;
@@ -121,7 +134,7 @@ void requestPosition(s32 target){
 }
         
 u8 setNextTarget(){
-  if (helper.numberOfTargets > 0){
+  if (helper.numberOfTargets > 0 && !helper.emergencyStop){
     setCarTargetPosition(helper.targets[0]);
     return 1;
   }
@@ -192,7 +205,10 @@ static void plannerTask(void *params) {
         doorSwitch = OPEN;
         break;
       case(STOP_PRESSED):
+        toggleEmergencyStop();
         setCarMotorStopped(1);
+        break;
+      case(STOP_RELEASED):
         break;
       default:
         break;

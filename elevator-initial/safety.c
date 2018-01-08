@@ -60,7 +60,6 @@ static void safetyTask(void *params) {
   double distance;
   bool direction = 1;
   bool stopActive = 0;
-  s32 totalTravelDistance = 0;
   s16 timeSinceStopPressed = -1;
   s16 timeSinceStopedAtFloor = 1000;  // time in ms
   double lastKnownPosition = getCarPosition();
@@ -91,13 +90,14 @@ static void safetyTask(void *params) {
 		//														800cm (the at-floor sensor reports a floor with 
 		//														a threshold of +-0.5cm)
     check(!(AT_FLOOR && !(isInRange(lastKnownPosition, 0, 0.5) || isInRange(lastKnownPosition, 400, 0.5) || isInRange(lastKnownPosition, 800, 0.5))), "env3");
+    lastKnownPosition = currentPosition;  // get the last known position of
+                                          // lift.
 
-
-		// Environment assumption 4: The lift cannot run longer than 10KM 
-		//													 without a manual checkup.
-    //check(isInRange(distance/(timeSinceLastCheck/1000),getMotorCurrentDuty()/200, 3), "distance/time does not match motor duty"); 
-    lastKnownPosition = currentPosition;			//get the last known position of lift.
-
+    // Environment assumption 4: We make sure thate the input from the motor
+    // seems sane.
+    // If the motor indicates UPWARD and DOWNWARD something is very wrong and we
+    // should stop
+    check(!(MOTOR_UPWARD && MOTOR_DOWNWARD), "env 4 - motor input is bonkers!");
 
     /* System requirement 1: if the stop button is pressed, the motor is
     //                       stopped within 1s
