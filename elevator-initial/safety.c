@@ -133,8 +133,8 @@ static void safetyTask(void *params) {
 					at the Floor	
 		*/
     if(STOP_PRESSED) stopActive = 1;
-    if(lastKnownAcceleration > (getMotorCurrentDuty() / 200) && !STOP_PRESSED) stopActive = 0;
-    if (MOTOR_STOPPED && lastKnownAcceleration > 0) check(stopActive || AT_FLOOR, "req4");
+    if(lastKnownAcceleration < (getMotorCurrentDuty() / 200) && !STOP_PRESSED) stopActive = 0;
+    if (MOTOR_STOPPED) check(stopActive || AT_FLOOR, "req4");
 
     /* Safety requirement 5
      * The left should wait for at least 1 second in stand still 
@@ -152,7 +152,7 @@ static void safetyTask(void *params) {
     /* Safety requirement 6: Elevator should not change the direction of motion , 
 		 * Elevator is allowed to change the directions only at Floors.
      */
-    if(!AT_FLOOR) check(direction == (MOTOR_UPWARD > MOTOR_DOWNWARD), "req6");
+    if(!AT_FLOOR) check(direction == (MOTOR_UPWARD > MOTOR_DOWNWARD) || stopActive, "req6");
     else direction = (MOTOR_UPWARD > MOTOR_DOWNWARD); 
     
     lastKnownAcceleration = getMotorCurrentDuty() / 200;

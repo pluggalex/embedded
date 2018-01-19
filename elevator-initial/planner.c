@@ -209,6 +209,8 @@ static void plannerTask(void *params) {
         setCarMotorStopped(1);
         break;
       case(STOP_RELEASED):
+        toggleEmergencyStop();
+        setCarMotorStopped(0);
         break;
       default:
         break;
